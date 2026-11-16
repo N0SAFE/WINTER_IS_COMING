@@ -3,7 +3,7 @@
 // window. Hover over the snow to roll snowballs, push them into each other, drag them with the mouse and
 // stack three of them into a snowman. See README.md for the full list.
 // Build: swiftc -O WinterIsComing.swift -o WinterIsComing
-// Run:   ./WinterIsComing   (a ❄︎ icon appears in the menu bar: pause / snow amount / quit)
+// Run:   ./WinterIsComing   (a ❄︎ icon appears in the menu bar: enable snow / snow amount / quit)
 
 import Cocoa
 import SpriteKit
@@ -63,11 +63,12 @@ enum Defaults {
     static let snowballsEnabled = true
     static let flakesInFront = true
     static let inFrontFraction = 0.4
+    static let snowEnabled = true
 
     static let keys = [
         "wic.snowAmount", "wic.fallSpeed", "wic.windScale", "wic.snowTint",
         "wic.windowPileMax", "wic.groundPileMax", "wic.dockPileMax",
-        "wic.snowballsEnabled", "wic.flakesInFront",
+        "wic.snowballsEnabled", "wic.flakesInFront", "wic.snowEnabled",
     ]
 
     static func int(_ key: String, _ fallback: Int) -> Int {
@@ -115,6 +116,7 @@ enum Cfg {
     static let maxBalls = 20
     static let dockGain: CGFloat = 3.0
     static var snowballsEnabled = Defaults.bool("wic.snowballsEnabled", Defaults.snowballsEnabled)
+    static var snowEnabled = Defaults.bool("wic.snowEnabled", Defaults.snowEnabled)
     static var tint = Defaults.tint("wic.snowTint", Defaults.snowTint)
 
     static func resetToDefaults() {
@@ -126,6 +128,7 @@ enum Cfg {
         windScale = CGFloat(Defaults.windScale)
         flakesInFront = Defaults.flakesInFront
         snowballsEnabled = Defaults.snowballsEnabled
+        snowEnabled = Defaults.snowEnabled
         tint = Defaults.snowTint
     }
 }
@@ -1304,7 +1307,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: OverlayWindow!
     var scene: SnowScene!
     var statusItem: NSStatusItem!
-    var pauseItem: NSMenuItem!
+    var snowEnabledItem: NSMenuItem!
     var amountItems: [NSMenuItem] = []
     var speedItems: [NSMenuItem] = []
     var windItems: [NSMenuItem] = []
@@ -1336,10 +1339,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         view.presentScene(scene)
         window.contentView = view
         window.setFrame(screen.frame, display: true)
-        window.orderFrontRegardless()
         scene.lastMouse = scene.scenePoint(NSEvent.mouseLocation)
 
         setupMenu()
+        applySnowEnabled()
         NotificationCenter.default.addObserver(self, selector: #selector(screensChanged),
                                                name: NSApplication.didChangeScreenParametersNotification, object: nil)
 
@@ -1387,9 +1390,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.title = "❄︎"
         let menu = NSMenu()
 
-        pauseItem = NSMenuItem(title: "Pause Snow", action: #selector(togglePause), keyEquivalent: "p")
-        pauseItem.target = self
-        menu.addItem(pauseItem)
+        snowEnabledItem = NSMenuItem(title: "Snow Enabled", action: #selector(toggleSnowEnabled), keyEquivalent: "p")
+        snowEnabledItem.target = self
+        snowEnabledItem.state = Cfg.snowEnabled ? .on : .off
+        menu.addItem(snowEnabledItem)
 
         let clear = NSMenuItem(title: "Clear Snow", action: #selector(clearSnow), keyEquivalent: "c")
         clear.target = self
@@ -1455,18 +1459,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for it in pileItems { it.state = it.tag == pile ? .on : .off }
         snowballsItem.state = Cfg.snowballsEnabled ? .on : .off
         inFrontItem.state = Cfg.flakesInFront ? .on : .off
+        snowEnabledItem.state = Cfg.snowEnabled ? .on : .off
     }
 
-    @objc func togglePause() {
-        scene.isPaused.toggle()
-        (window.contentView as? SKView)?.isPaused = scene.isPaused
-        if scene.isPaused {
-            window.orderOut(nil)
-            pauseItem.title = "Resume Snow"
-        } else {
+    @objc func toggleSnowEnabled() {
+        Cfg.snowEnabled.toggle()
+        Defaults.set(Cfg.snowEnabled, for: "wic.snowEnabled")
+        applySnowEnabled()
+    }
+
+    func applySnowEnabled() {
+        scene.isPaused = !Cfg.snowEnabled
+        (window.contentView as? SKView)?.isPaused = !Cfg.snowEnabled
+        if Cfg.snowEnabled {
             window.orderFrontRegardless()
-            pauseItem.title = "Pause Snow"
+        } else {
+            window.orderOut(nil)
         }
+        snowEnabledItem.state = Cfg.snowEnabled ? .on : .off
     }
 
     @objc func setAmount(_ sender: NSMenuItem) {
@@ -1542,6 +1552,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Cfg.resetToDefaults()
         scene.setSnowballsEnabled(Cfg.snowballsEnabled)
         scene.applySettings()
+        applySnowEnabled()
         syncMenu()
     }
 

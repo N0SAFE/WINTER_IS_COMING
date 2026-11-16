@@ -25,7 +25,7 @@ cd WINTER_IS_COMING
 zsh build.sh
 ```
 
-Use the ❄︎ in the menu bar to pause, customize the snow, clear it, or quit.
+Use the ❄︎ in the menu bar to enable or disable snow, customize it, clear it, or quit.
 
 - No `swiftc`? Run `xcode-select --install` first.
 - Want snow on the Dock too? Turn on **Terminal** in System Settings → Privacy & Security → Accessibility.
@@ -51,6 +51,7 @@ By default the login item restarts the app after a crash but respects a normal Q
 
 Open the ❄︎ menu:
 
+- **Snow Enabled**: instantly turn the snowfall on or off; the choice survives restarts
 - **Snow Amount**: Light, Medium, Heavy or Blizzard
 - **Fall Speed**: Slow, Normal or Fast
 - **Wind**: Calm, Breezy or Gusty
