@@ -8,26 +8,126 @@
 import Cocoa
 import SpriteKit
 
-// MARK: - Settings (feel free to tweak)
+// MARK: - Settings (feel free to tweak defaults)
+
+enum SnowTint: String, CaseIterable {
+    case classic, ice, rose, mint
+
+    var title: String {
+        switch self {
+        case .classic: return "Classic White"
+        case .ice: return "Ice Blue"
+        case .rose: return "Rose"
+        case .mint: return "Mint"
+        }
+    }
+
+    var color: NSColor {
+        switch self {
+        case .classic: return NSColor(calibratedWhite: 1, alpha: 1)
+        case .ice: return NSColor(calibratedRed: 0.84, green: 0.93, blue: 1, alpha: 1)
+        case .rose: return NSColor(calibratedRed: 1, green: 0.90, blue: 0.93, alpha: 1)
+        case .mint: return NSColor(calibratedRed: 0.88, green: 1, blue: 0.95, alpha: 1)
+        }
+    }
+
+    var pile: NSColor {
+        switch self {
+        case .classic: return NSColor(calibratedWhite: 1, alpha: 0.97)
+        case .ice: return NSColor(calibratedRed: 0.88, green: 0.95, blue: 1, alpha: 0.97)
+        case .rose: return NSColor(calibratedRed: 1, green: 0.93, blue: 0.95, alpha: 0.97)
+        case .mint: return NSColor(calibratedRed: 0.91, green: 1, blue: 0.96, alpha: 0.97)
+        }
+    }
+
+    var shade: NSColor {
+        switch self {
+        case .classic: return NSColor(calibratedRed: 0.70, green: 0.78, blue: 0.92, alpha: 0.9)
+        case .ice: return NSColor(calibratedRed: 0.52, green: 0.66, blue: 0.90, alpha: 0.9)
+        case .rose: return NSColor(calibratedRed: 0.84, green: 0.62, blue: 0.71, alpha: 0.9)
+        case .mint: return NSColor(calibratedRed: 0.55, green: 0.80, blue: 0.71, alpha: 0.9)
+        }
+    }
+}
+
+enum Defaults {
+    static let store = UserDefaults.standard
+
+    static let snowAmount = 260
+    static let fallSpeed = 1.5
+    static let windScale = 1.0
+    static let snowTint = SnowTint.classic
+    static let windowPileMax = 16.0
+    static let groundPileMax = 34.0
+    static let dockPileMax = 18.0
+    static let snowballsEnabled = true
+    static let flakesInFront = true
+    static let inFrontFraction = 0.4
+
+    static let keys = [
+        "wic.snowAmount", "wic.fallSpeed", "wic.windScale", "wic.snowTint",
+        "wic.windowPileMax", "wic.groundPileMax", "wic.dockPileMax",
+        "wic.snowballsEnabled", "wic.flakesInFront",
+    ]
+
+    static func int(_ key: String, _ fallback: Int) -> Int {
+        store.object(forKey: key) == nil ? fallback : store.integer(forKey: key)
+    }
+
+    static func double(_ key: String, _ fallback: Double) -> Double {
+        store.object(forKey: key) == nil ? fallback : store.double(forKey: key)
+    }
+
+    static func bool(_ key: String, _ fallback: Bool) -> Bool {
+        store.object(forKey: key) == nil ? fallback : store.bool(forKey: key)
+    }
+
+    static func tint(_ key: String, _ fallback: SnowTint) -> SnowTint {
+        guard let raw = store.string(forKey: key), let value = SnowTint(rawValue: raw) else { return fallback }
+        return value
+    }
+
+    static func set(_ value: Any, for key: String) { store.set(value, forKey: key) }
+
+    static func reset() {
+        for key in keys { store.removeObject(forKey: key) }
+        store.synchronize()
+    }
+}
 
 enum Cfg {
-    static var targetFlakes = 260            // number of flakes falling at the same time
-    static let colW: CGFloat = 3             // width of one column of the snow height map (px)
-    static let windowPileMax: CGFloat = 16   // max snow height on top of a window
-    static let groundPileMax: CGFloat = 34   // max snow height at the bottom of the screen
-    static let gravity: CGFloat = 900        // gravity for snow sliding off
-    static let pollInterval = 1.0 / 30.0     // how often window positions are checked (s)
-    static let maxClumps = 900               // max number of falling snow clumps at once
-    static let dockPileMax: CGFloat = 18     // max snow height on the Dock
-    static let dockPad: CGFloat = 4          // extra width of the Dock pile on each side of the icon area
-    static let dockTopOffset: CGFloat = -1   // lower it if the snow floats above the Dock, raise it if it sinks in
-    static let fallSpeed: CGFloat = 1.5      // falling speed multiplier (1 = original, bigger = faster)
-    static let flakesInFront = true          // some of the smallest flakes fall in front of windows, so they can reach the Dock
-    static let inFrontFraction: CGFloat = 0.4 // share of the smallest layer that falls in front (0...1)
-    static let ballStartRadius: CGFloat = 3  // a new snowball starts this small
-    static let ballMaxRadius: CGFloat = 28   // and stops growing at this size
-    static let maxBalls = 20                 // oldest resting snowballs are removed beyond this
-    static let dockGain: CGFloat = 3.0       // snow landing on the Dock counts this many times more, so it builds up
+    static var targetFlakes = Defaults.int("wic.snowAmount", Defaults.snowAmount)
+    static let colW: CGFloat = 3
+    static var windowPileMax = CGFloat(Defaults.double("wic.windowPileMax", Defaults.windowPileMax))
+    static var groundPileMax = CGFloat(Defaults.double("wic.groundPileMax", Defaults.groundPileMax))
+    static let gravity: CGFloat = 900
+    static let pollInterval = 1.0 / 30.0
+    static let maxClumps = 900
+    static var dockPileMax = CGFloat(Defaults.double("wic.dockPileMax", Defaults.dockPileMax))
+    static let dockPad: CGFloat = 4
+    static let dockTopOffset: CGFloat = -1
+    static var fallSpeed = CGFloat(Defaults.double("wic.fallSpeed", Defaults.fallSpeed))
+    static var windScale = CGFloat(Defaults.double("wic.windScale", Defaults.windScale))
+    static var flakesInFront = Defaults.bool("wic.flakesInFront", Defaults.flakesInFront)
+    static let inFrontFraction: CGFloat = CGFloat(Defaults.inFrontFraction)
+    static let ballStartRadius: CGFloat = 3
+    static let ballMaxRadius: CGFloat = 28
+    static let maxBalls = 20
+    static let dockGain: CGFloat = 3.0
+    static var snowballsEnabled = Defaults.bool("wic.snowballsEnabled", Defaults.snowballsEnabled)
+    static var tint = Defaults.tint("wic.snowTint", Defaults.snowTint)
+
+    static func resetToDefaults() {
+        targetFlakes = Defaults.snowAmount
+        windowPileMax = CGFloat(Defaults.windowPileMax)
+        groundPileMax = CGFloat(Defaults.groundPileMax)
+        dockPileMax = CGFloat(Defaults.dockPileMax)
+        fallSpeed = CGFloat(Defaults.fallSpeed)
+        windScale = CGFloat(Defaults.windScale)
+        flakesInFront = Defaults.flakesInFront
+        snowballsEnabled = Defaults.snowballsEnabled
+        tint = Defaults.snowTint
+    }
 }
 
 // MARK: - Find the Dock (needs Accessibility permission)
@@ -220,6 +320,7 @@ let layers: [Layer] = [
     var swayFreq: CGFloat = 1
     var phase: CGFloat = 0
     var windFactor: CGFloat = 1
+    var layerIndex = 0
     var inFront = false          // true = falls in front of windows (ignores them), lands on Dock / ground
     var isClump = false          // true = clump sliding off a surface (affected by gravity)
     var ignoreID = -1            // don't land right back on the surface it came from
@@ -255,12 +356,12 @@ let layers: [Layer] = [
             let t = min(1, edgeDist / (maxH * 2.2))
             return maxH * t.squareRoot()
         }
-        body.fillColor = NSColor(calibratedWhite: 1, alpha: 0.97)
+        body.fillColor = Cfg.tint.pile
         body.strokeColor = .clear
         body.lineWidth = 0
         body.zPosition = 5
         // light blue-grey layer underneath, like a shadow
-        shade.fillColor = NSColor(calibratedRed: 0.70, green: 0.78, blue: 0.92, alpha: 0.9)
+        shade.fillColor = Cfg.tint.shade
         shade.strokeColor = .clear
         shade.lineWidth = 0
         shade.zPosition = 4
@@ -308,6 +409,11 @@ let layers: [Layer] = [
     func clear() {
         for i in 0..<count { h[i] = 0 }
         dirty = true
+    }
+
+    func retint() {
+        body.fillColor = Cfg.tint.pile
+        shade.fillColor = Cfg.tint.shade
     }
 
     func redraw() {
@@ -370,8 +476,15 @@ final class SnowScene: SKScene {
         ballTex = makeSnowballTexture()
         speckTex = makeSpeckTexture()
         addChild(world)
+        lastMouse = scenePoint(NSEvent.mouseLocation)
         resetGround()
         for _ in 0..<Cfg.targetFlakes { spawnFlake(y: rnd(0, size.height)) }
+    }
+
+    var windowOrigin: CGPoint { view?.window?.frame.origin ?? .zero }
+
+    func scenePoint(_ global: CGPoint) -> CGPoint {
+        CGPoint(x: global.x - windowOrigin.x, y: global.y - windowOrigin.y)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -391,8 +504,54 @@ final class SnowScene: SKScene {
         dockPile?.redraw()
         ground?.clear()
         ground?.redraw()
+        activeBall = nil
+        dragBall?.dragging = false
+        dragBall = nil
         for b in balls { b.node.removeFromParent() }
         balls.removeAll()
+    }
+
+    func setSnowballsEnabled(_ enabled: Bool) {
+        Cfg.snowballsEnabled = enabled
+        guard !enabled else { return }
+        activeBall = nil
+        dragBall?.dragging = false
+        dragBall = nil
+        for b in balls { b.node.removeFromParent() }
+        balls.removeAll()
+    }
+
+    func applyTint() {
+        for p in piles.values { p.retint() }
+        ground?.retint()
+        dockPile?.retint()
+        for f in flakes {
+            f.node.color = Cfg.tint.color
+            f.node.colorBlendFactor = 1
+        }
+    }
+
+    func applySettings() {
+        activeBall = nil
+        dragBall?.dragging = false
+        dragBall = nil
+        for b in balls { b.node.removeFromParent() }
+        balls.removeAll()
+        for p in piles.values { p.remove() }
+        piles.removeAll()
+        lastRect.removeAll()
+        dockPile?.remove()
+        dockPile = nil
+        dockRect = nil
+        lastDockStatus = ""
+        dockAcc = 0.5
+        resetGround()
+        refreshInFront()
+        for f in flakes {
+            f.node.color = Cfg.tint.color
+            f.node.colorBlendFactor = 1
+        }
+        pollWindows(dt: Cfg.pollInterval)
     }
 
     // MARK: Flake pool
@@ -417,6 +576,7 @@ final class SnowScene: SKScene {
         let r = CGFloat.random(in: 0...1)
         let li = r < 0.40 ? 0 : (r < 0.68 ? 1 : 2)   // 40% far, 28% middle, 32% near
         let L = layers[li]
+        f.layerIndex = li
         f.inFront = Cfg.flakesInFront && li == 0 && CGFloat.random(in: 0...1) < Cfg.inFrontFraction
         f.isClump = false
         f.ignoreID = -1
@@ -427,9 +587,17 @@ final class SnowScene: SKScene {
         f.phase = rnd(0, 6.28)
         f.windFactor = L.wind
         f.node.alpha = CGFloat.random(in: L.alpha)
+        f.node.color = Cfg.tint.color
+        f.node.colorBlendFactor = 1
         f.node.size = CGSize(width: f.size * 2.2, height: f.size * 2.2)
         f.node.zPosition = L.z
         f.node.position = CGPoint(x: rnd(-40, size.width + 40), y: y ?? size.height + rnd(2, 30))
+    }
+
+    func refreshInFront() {
+        for f in flakes where !f.isClump {
+            f.inFront = Cfg.flakesInFront && f.layerIndex == 0 && CGFloat.random(in: 0...1) < Cfg.inFrontFraction
+        }
     }
 
     func spawnClump(at p: CGPoint, vel: CGVector, sourceID: Int) {
@@ -441,6 +609,8 @@ final class SnowScene: SKScene {
         f.ignoreID = sourceID
         f.ignoreUntil = t + 0.35
         f.node.alpha = 0.95
+        f.node.color = Cfg.tint.color
+        f.node.colorBlendFactor = 1
         f.node.size = CGSize(width: f.size * 2.2, height: f.size * 2.2)
         f.node.zPosition = 6
         f.node.position = p
@@ -495,7 +665,7 @@ final class SnowScene: SKScene {
     /// does it catch clicks, so you can grab the ball without clicking the window underneath.
     func updateMouseCapture() {
         guard let w = view?.window else { return }
-        let capture = dragBall != nil || ballAt(NSEvent.mouseLocation) != nil
+        let capture = Cfg.snowballsEnabled && (dragBall != nil || ballAt(scenePoint(NSEvent.mouseLocation)) != nil)
         if w.ignoresMouseEvents == capture { w.ignoresMouseEvents = !capture }
     }
 
@@ -576,7 +746,7 @@ final class SnowScene: SKScene {
         b.specks.zRotation -= (target.x - b.x) / b.r
         b.x = target.x
         b.y = target.y
-        lastMouse = NSEvent.mouseLocation
+        lastMouse = scenePoint(NSEvent.mouseLocation)
     }
 
     /// A ball dropped just above another ball (that isn't already a full snowman) gets stacked on it
@@ -700,7 +870,8 @@ final class SnowScene: SKScene {
     }
 
     func updateRolling() {
-        let m = NSEvent.mouseLocation     // same coordinates as the scene (origin bottom-left of main screen)
+        guard Cfg.snowballsEnabled else { activeBall = nil; return }
+        let m = scenePoint(NSEvent.mouseLocation)
         let dx = m.x - lastMouse.x
         lastMouse = m
         guard let p = surfaceUnderMouse(m) else { activeBall = nil; return }
@@ -905,6 +1076,7 @@ final class SnowScene: SKScene {
     // Read all window frames (macOS origin is top-left, SpriteKit is bottom-left, so flip y)
     func pollWindows(dt: CGFloat) {
         let H = size.height
+        let screenBounds = CGRect(x: 0, y: 0, width: size.width, height: H)
         var newOrder: [(id: Int, rect: CGRect)] = []
         if let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
             for w in info {
@@ -914,7 +1086,7 @@ final class SnowScene: SKScene {
                       let bd = w[kCGWindowBounds as String] as? NSDictionary,
                       let b = CGRect(dictionaryRepresentation: bd as CFDictionary) else { continue }
                 let alpha = (w[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1
-                if alpha < 0.05 || b.width < 80 || b.height < 40 { continue }
+                if alpha < 0.05 || b.width < 80 || b.height < 40 || !b.intersects(screenBounds) { continue }
                 newOrder.append((id: numN.intValue,
                                  rect: CGRect(x: b.minX, y: H - b.maxY, width: b.width, height: b.height)))
             }
@@ -1043,7 +1215,7 @@ final class SnowScene: SKScene {
 
     func stepFlakes(_ dt: CGFloat) {
         // A few sines at different frequencies add up to gusty wind
-        let wind = 14 * sin(t * 0.11) + 9 * sin(t * 0.37 + 1.3) + 6 * sin(t * 0.9 + 0.4)
+        let wind = (14 * sin(t * 0.11) + 9 * sin(t * 0.37 + 1.3) + 6 * sin(t * 0.9 + 0.4)) * Cfg.windScale
         var normal = 0
         var i = flakes.count - 1
         while i >= 0 {
@@ -1134,6 +1306,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var pauseItem: NSMenuItem!
     var amountItems: [NSMenuItem] = []
+    var speedItems: [NSMenuItem] = []
+    var windItems: [NSMenuItem] = []
+    var tintItems: [NSMenuItem] = []
+    var pileItems: [NSMenuItem] = []
+    var snowballsItem: NSMenuItem!
+    var inFrontItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard let screen = NSScreen.screens.first else { return }
@@ -1159,6 +1337,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = view
         window.setFrame(screen.frame, display: true)
         window.orderFrontRegardless()
+        scene.lastMouse = scene.scenePoint(NSEvent.mouseLocation)
 
         setupMenu()
         NotificationCenter.default.addObserver(self, selector: #selector(screensChanged),
@@ -1185,6 +1364,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         (window.contentView as? SKView)?.isPaused = false
     }
 
+    func addChoices(_ title: String, _ entries: [(String, Int)], action: Selector, selected: Int,
+                    to menu: NSMenu) -> [NSMenuItem] {
+        let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        var made: [NSMenuItem] = []
+        for (name, tag) in entries {
+            let item = NSMenuItem(title: name, action: action, keyEquivalent: "")
+            item.target = self
+            item.tag = tag
+            item.state = tag == selected ? .on : .off
+            sub.addItem(item)
+            made.append(item)
+        }
+        root.submenu = sub
+        menu.addItem(root)
+        return made
+    }
+
     func setupMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "❄︎"
@@ -1194,30 +1391,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pauseItem.target = self
         menu.addItem(pauseItem)
 
-        let amount = NSMenuItem(title: "Snow Amount", action: nil, keyEquivalent: "")
-        let sub = NSMenu()
-        for (title, n) in [("Light", 120), ("Medium", 260), ("Heavy", 500)] {
-            let it = NSMenuItem(title: title, action: #selector(setAmount(_:)), keyEquivalent: "")
-            it.target = self
-            it.tag = n
-            it.state = (n == Cfg.targetFlakes) ? .on : .off
-            sub.addItem(it)
-            amountItems.append(it)
-        }
-        amount.submenu = sub
-        menu.addItem(amount)
-
         let clear = NSMenuItem(title: "Clear Snow", action: #selector(clearSnow), keyEquivalent: "c")
         clear.target = self
         menu.addItem(clear)
+
+        menu.addItem(.separator())
+
+        amountItems = addChoices("Snow Amount",
+                                 [("Light", 120), ("Medium", 260), ("Heavy", 500), ("Blizzard", 800)],
+                                 action: #selector(setAmount(_:)), selected: Cfg.targetFlakes, to: menu)
+        speedItems = addChoices("Fall Speed",
+                                [("Slow", 70), ("Normal", 150), ("Fast", 240)],
+                                action: #selector(setSpeed(_:)),
+                                selected: Int((Cfg.fallSpeed * 100).rounded()), to: menu)
+        windItems = addChoices("Wind",
+                               [("Calm", 25), ("Breezy", 100), ("Gusty", 180)],
+                               action: #selector(setWind(_:)),
+                               selected: Int((Cfg.windScale * 100).rounded()), to: menu)
+        tintItems = addChoices("Snow Color",
+                               SnowTint.allCases.enumerated().map { ($0.element.title, $0.offset) },
+                               action: #selector(setTint(_:)),
+                               selected: SnowTint.allCases.firstIndex(of: Cfg.tint) ?? 0, to: menu)
+        pileItems = addChoices("Pile Height",
+                               [("Low", 0), ("Normal", 1), ("High", 2)],
+                               action: #selector(setPileHeight(_:)),
+                               selected: currentPilePreset(), to: menu)
+
+        menu.addItem(.separator())
+
+        snowballsItem = NSMenuItem(title: "Snowballs", action: #selector(toggleSnowballs), keyEquivalent: "")
+        snowballsItem.target = self
+        snowballsItem.state = Cfg.snowballsEnabled ? .on : .off
+        menu.addItem(snowballsItem)
+
+        inFrontItem = NSMenuItem(title: "Snow in Front of Windows", action: #selector(toggleInFront), keyEquivalent: "")
+        inFrontItem.target = self
+        inFrontItem.state = Cfg.flakesInFront ? .on : .off
+        menu.addItem(inFrontItem)
+
+        menu.addItem(.separator())
+        let reset = NSMenuItem(title: "Reset All Settings", action: #selector(resetSettings), keyEquivalent: "")
+        reset.target = self
+        menu.addItem(reset)
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
     }
 
+    func currentPilePreset() -> Int {
+        if Cfg.windowPileMax <= 10 { return 0 }
+        if Cfg.windowPileMax >= 24 { return 2 }
+        return 1
+    }
+
+    func syncMenu() {
+        for it in amountItems { it.state = it.tag == Cfg.targetFlakes ? .on : .off }
+        for it in speedItems { it.state = it.tag == Int((Cfg.fallSpeed * 100).rounded()) ? .on : .off }
+        for it in windItems { it.state = it.tag == Int((Cfg.windScale * 100).rounded()) ? .on : .off }
+        let tint = SnowTint.allCases.firstIndex(of: Cfg.tint) ?? 0
+        for it in tintItems { it.state = it.tag == tint ? .on : .off }
+        let pile = currentPilePreset()
+        for it in pileItems { it.state = it.tag == pile ? .on : .off }
+        snowballsItem.state = Cfg.snowballsEnabled ? .on : .off
+        inFrontItem.state = Cfg.flakesInFront ? .on : .off
+    }
+
     @objc func togglePause() {
         scene.isPaused.toggle()
+        (window.contentView as? SKView)?.isPaused = scene.isPaused
         if scene.isPaused {
             window.orderOut(nil)
             pauseItem.title = "Resume Snow"
@@ -1229,7 +1471,78 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func setAmount(_ sender: NSMenuItem) {
         Cfg.targetFlakes = sender.tag
-        for it in amountItems { it.state = (it === sender) ? .on : .off }
+        Defaults.set(sender.tag, for: "wic.snowAmount")
+        syncMenu()
+    }
+
+    @objc func setSpeed(_ sender: NSMenuItem) {
+        Cfg.fallSpeed = CGFloat(sender.tag) / 100
+        Defaults.set(Double(Cfg.fallSpeed), for: "wic.fallSpeed")
+        syncMenu()
+    }
+
+    @objc func setWind(_ sender: NSMenuItem) {
+        Cfg.windScale = CGFloat(sender.tag) / 100
+        Defaults.set(Double(Cfg.windScale), for: "wic.windScale")
+        syncMenu()
+    }
+
+    @objc func setTint(_ sender: NSMenuItem) {
+        guard sender.tag >= 0, sender.tag < SnowTint.allCases.count else { return }
+        Cfg.tint = SnowTint.allCases[sender.tag]
+        Defaults.set(Cfg.tint.rawValue, for: "wic.snowTint")
+        scene.applyTint()
+        syncMenu()
+    }
+
+    @objc func setPileHeight(_ sender: NSMenuItem) {
+        switch sender.tag {
+        case 0:
+            Cfg.windowPileMax = 8
+            Cfg.groundPileMax = 18
+            Cfg.dockPileMax = 10
+        case 2:
+            Cfg.windowPileMax = 26
+            Cfg.groundPileMax = 54
+            Cfg.dockPileMax = 28
+        default:
+            Cfg.windowPileMax = CGFloat(Defaults.windowPileMax)
+            Cfg.groundPileMax = CGFloat(Defaults.groundPileMax)
+            Cfg.dockPileMax = CGFloat(Defaults.dockPileMax)
+        }
+        Defaults.set(Double(Cfg.windowPileMax), for: "wic.windowPileMax")
+        Defaults.set(Double(Cfg.groundPileMax), for: "wic.groundPileMax")
+        Defaults.set(Double(Cfg.dockPileMax), for: "wic.dockPileMax")
+        scene.applySettings()
+        syncMenu()
+    }
+
+    @objc func toggleSnowballs() {
+        scene.setSnowballsEnabled(!Cfg.snowballsEnabled)
+        Defaults.set(Cfg.snowballsEnabled, for: "wic.snowballsEnabled")
+        syncMenu()
+    }
+
+    @objc func toggleInFront() {
+        Cfg.flakesInFront.toggle()
+        Defaults.set(Cfg.flakesInFront, for: "wic.flakesInFront")
+        scene.refreshInFront()
+        syncMenu()
+    }
+
+    @objc func resetSettings() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Reset all WinterIsComing settings?"
+        alert.informativeText = "Snow, piles and snowballs are also cleared."
+        alert.addButton(withTitle: "Reset")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Defaults.reset()
+        Cfg.resetToDefaults()
+        scene.setSnowballsEnabled(Cfg.snowballsEnabled)
+        scene.applySettings()
+        syncMenu()
     }
 
     @objc func clearSnow() { scene.clearAll() }
@@ -1237,6 +1550,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func screensChanged() {
         guard let screen = NSScreen.screens.first else { return }
         window.setFrame(screen.frame, display: true)
+        scene.lastMouse = scene.scenePoint(NSEvent.mouseLocation)
     }
 }
 

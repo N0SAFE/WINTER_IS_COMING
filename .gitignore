@@ -1,6 +1,9 @@
 # Compiled binary (built by build.sh)
 /WinterIsComing
 
+# App bundle and build output (built by install.sh)
+/.build/
+
 # Temporary / editor files
 *.new
 .DS_Store

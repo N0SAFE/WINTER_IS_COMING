@@ -25,14 +25,46 @@ cd WINTER_IS_COMING
 zsh build.sh
 ```
 
-Use the ❄︎ in the menu bar to pause, pick light, medium or heavy snow, clear the snow, or quit.
+Use the ❄︎ in the menu bar to pause, customize the snow, clear it, or quit.
 
 - No `swiftc`? Run `xcode-select --install` first.
 - Want snow on the Dock too? Turn on **Terminal** in System Settings → Privacy & Security → Accessibility.
 
+## Install as a startup app 🚀
+
+```sh
+zsh install.sh
+```
+
+This builds `WinterIsComing.app`, installs it to `~/Applications`, and starts it every time you log in with a LaunchAgent. Your settings are stored in `~/Library/Preferences/com.yike-shi.winteriscoming.plist`, so they survive restarts.
+
+```sh
+zsh install.sh --system       # install into /Applications instead
+zsh install.sh --no-login     # install but do not start at login
+zsh install.sh --keep-alive   # keep relaunching even after a normal quit
+zsh install.sh --uninstall    # remove the app, login item and settings
+```
+
+By default the login item restarts the app after a crash but respects a normal Quit. When installed as an app, grant Accessibility to **WinterIsComing** (not Terminal) for snow on the Dock.
+
+## Customize from the menu 🎛️
+
+Open the ❄︎ menu:
+
+- **Snow Amount**: Light, Medium, Heavy or Blizzard
+- **Fall Speed**: Slow, Normal or Fast
+- **Wind**: Calm, Breezy or Gusty
+- **Snow Color**: Classic White, Ice Blue, Rose or Mint
+- **Pile Height**: Low, Normal or High
+- **Snowballs**: turn rolling balls on or off
+- **Snow in Front of Windows**: let the small front layer fall over windows
+- **Reset All Settings**: back to the defaults
+
+Every choice is saved immediately and restored the next time the app starts. The defaults still live at the top of `WinterIsComing.swift` if you prefer to change the source.
+
 ## Make it yours 🎨
 
-Every setting lives at the top of `WinterIsComing.swift` (`enum Cfg`): how many flakes fall, how fast they fall, how tall the piles get, how big a snowball can grow… Change a number and run `zsh build.sh` again.
+The menu covers the common knobs. For the rest, the defaults live at the top of `WinterIsComing.swift` (`enum Cfg`): gravity, column width, snowball growth, Dock padding and so on. Change a number and run `zsh build.sh` or `zsh install.sh` again.
 
 ## License
 
